@@ -11,12 +11,10 @@ SRCS        := $(SRC_DIR)/main.cu $(SRC_DIR)/pipeline.cu
 INCLUDES    := -I$(INC_DIR)
 
 # #we link against NPP image processing and core libs
-LDFLAGS     := -lnppif -lnppig -lnppicc -lnppidei -lnppc -lstdc++fs
+LDFLAGS     := -lnppif -lnppig -lnppicc -lnppc -lstdc++fs
 
-# #we compile for sm_75 (T4/Turing) and sm_86 (A100), adjust as needed
+# #we compile for sm_75 (T4/Turing) — works on Colab T4
 NVCCFLAGS   := -std=c++17 -O2 -arch=sm_75 \
-               -gencode arch=compute_75,code=sm_75 \
-               -gencode arch=compute_86,code=sm_86 \
                $(INCLUDES)
 
 INPUT_DIR   := data/input

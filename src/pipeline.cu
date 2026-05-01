@@ -10,6 +10,15 @@
 #include <vector>
 #include <stdexcept>
 
+// #we saturating add: clamp(a+b, 0, 255) per pixel, replaces nppiAdd dep
+__global__ void SaturatingAdd(const Npp8u* a, const Npp8u* b, Npp8u* out, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        unsigned int sum = (unsigned int)a[i] + (unsigned int)b[i];
+        out[i] = (Npp8u)(sum > 255u ? 255u : sum);
+    }
+}
+
 // #we validate blur size and return NppiMaskSize enum
 static NppiMaskSize GetMaskSize(int blur_size) {
     switch (blur_size) {
@@ -89,14 +98,12 @@ std::vector<unsigned char> RunPipeline(
         NPP_BORDER_REPLICATE
     ));
 
-    // #we add H and V to get edge magnitude (saturating add)
-    NPP_CHECK(nppiAdd_8u_C1RSfs(
-        d_sobel_h.ptr, gray_step,
-        d_sobel_v.ptr, gray_step,
-        d_edges.ptr,   gray_step,
-        roi,
-        0  // #we scale factor: 0 means divide by 2^0 = no scale
-    ));
+    // #we combine H+V sobel with a simple saturating-add kernel (avoids nppiAdd lib dep)
+    int n_pixels = width * height;
+    int threads  = 256;
+    int blocks   = (n_pixels + threads - 1) / threads;
+    SaturatingAdd<<<blocks, threads>>>(d_sobel_h.ptr, d_sobel_v.ptr, d_edges.ptr, n_pixels);
+    CUDA_CHECK(cudaGetLastError());
 
     // --- Download result to host ---
     std::vector<unsigned char> result(width * height);
