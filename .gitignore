@@ -1,6 +1,4 @@
 bin/
-data/output/
-logs/
 *.o
 *.d
 include/stb_image.h
